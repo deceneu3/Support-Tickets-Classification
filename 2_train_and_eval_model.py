@@ -28,17 +28,17 @@ class StemmedCountVectorizer(CountVectorizer):
         return lambda doc: ([stemmer.stem(w) for w in analyzer(doc)])
 
 
-column_to_predict = "ticket_type"
+column_to_predict = "business_service"
 # Supported datasets:
 # ticket_type
 # business_service
 # category
-# impact
-# urgency
-# sub_category1
-# sub_category2
+### impact
+### urgency
+## sub_category1
+## sub_category2
  
-classifier = "LGB"  # Supported algorithms # "SVM" # "NB" # "LGB"
+classifier = "SVM"  # Supported algorithms # "SVM" # "NB" # "LGB"
 use_grid_search = False  # grid search is used to find hyperparameters. Searching for hyperparameters is time consuming
 remove_stop_words = True  # removes stop words from processed text
 stop_words_lang = 'english'  # used with 'remove_stop_words' and defines language of stop words collection
@@ -58,7 +58,12 @@ if __name__ == '__main__':
         './datasets/all_tickets.csv',
         dtype=str
     )  
+    print("Shape of tickets dataset:",dfTickets.shape)
 
+    # Remove NaN
+    dfTickets = dfTickets.dropna(subset=['body'])
+    print("Shape after removed NaNs:",dfTickets.shape)
+    
     text_columns = "body"  # "title" - text columns used for TF-IDF
     
     # Removing rows related to classes represented by low amount of data

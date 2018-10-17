@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import pandas as pd
 import pickle
-from azureml.dataprep import package
+import time
 sys.path.append(".")
 sys.path.append("..")
 
@@ -36,16 +36,27 @@ def removeNonEnglish(text, englishWords):
     removedWordsList += set(list(removedWords))-set(removedWordsList)
     return text
 
+#import csv
 
-def encryptSingleColumn(data):
+def encryptSingleColumn(data,column):
     le = preprocessing.LabelEncoder()
-    le.fit(data)
-    return le.transform(data)
+    le.fit(data.astype(str))
+    le_name_mapping = dict(zip(le.transform(le.classes_), le.classes_))
+    #le_name_mapping.to_csv(data, index=False, index_label=False)
+    
+    pickle.dump(
+            le_name_mapping,
+            open(os.path.join(
+                '.', 'outputs', column+".feature"),
+                'wb'
+            )
+        )
+    return le.transform(data.astype(str))
 
 
 def encryptColumnsCollection(data, columnsToEncrypt):
     for column in columnsToEncrypt:
-        data[column] = encryptSingleColumn(data[column])
+        data[column] = encryptSingleColumn(data[column],column)
     return data
 
 
@@ -99,43 +110,47 @@ if __name__ == '__main__':
     # dfIncidents = package.run('Incidents.dprep', dataflow_idx=0)
     # dfIncidents = pd.read_csv('allIncidents.csv', encoding="ISO-8859-1")
     # dfRequests = package.run('Requests.dprep', dataflow_idx=0)
-    dfIncidents = package.run('IncidentsCleaned.dprep', dataflow_idx=0)
-    dfRequests = package.run('RequestsCleaned.dprep', dataflow_idx=0)
+    #dfIncidents = package.run('IncidentsCleaned.dprep', dataflow_idx=0)
+    #dfRequests = package.run('RequestsCleaned.dprep', dataflow_idx=0)
 
     # Load dataset from file
     # dfIncidents = pd.read_csv('./data/endava_tickets/all_incidents.csv')
     # dfRequests = pd.read_csv('./data/endava_tickets/all_requests.csv')
     #####################
 
-    # Reorder columns
-    columnsOrder = [
-        'title', 'body', 'ticket_type', 'category',
-        'sub_category1', 'sub_category2', 'business_service',
-        'urgency', 'impact'
-    ]
-    dfIncidents = dfIncidents[columnsOrder]
-    dfRequests = dfRequests[columnsOrder]
-    print(dfIncidents.shape)
-    print(dfRequests.shape)
-
+    dfIncidents = pd.read_csv('./datasets/preprocessed_incidents.csv',  nrows=None, dtype=str, low_memory=False)#, dtype=str, low_memory=False, error_bad_lines=False, warn_bad_lines=False, nrows=None)
+    print("Shape incidents:",dfIncidents.shape)
+    dfRequests = pd.read_csv('./datasets/preprocessed_requests.csv',  nrows=None, dtype=str, low_memory=False)#, dtype=str, low_memory=False, error_bad_lines=False, warn_bad_lines=False, nrows=None)
+    print("Shape requests:",dfRequests.shape)
+    
+    
     # Merge incidents and requests datasets
     dfTickets = dfRequests.append(
         dfIncidents,
         ignore_index=True)  # set True to avoid index duplicates
-    print(dfTickets.shape)
+    print("Shape after merging requests with incidents:",dfTickets.shape)
+    
+    # Reorder columns
+    columnsOrder = [
+        'title', 'body', 'ticket_type', 'business_service',
+        'category', 'sub_category1', 'sub_category2']
 
+
+
+    # Merge 'title' and 'body' columns into single column 'body'
+    dfTickets['body'] = (dfTickets['title']+
+       " " + dfTickets['body']).map(str)
+    dfTickets = dfTickets.drop(['title'], axis=1)
+    print("Shape after drop title:",dfTickets.shape)
+
+    
     # Remove duplicates
     columnsToDropDuplicates = ['body']
     dfTickets = dfTickets.drop_duplicates(columnsToDropDuplicates)
-    print(dfTickets.shape)
-
-    # Merge 'title' and 'body' columns into single column 'body'
-    # dfTickets['body'] = (dfTickets['title']+
-    #   " " + dfTickets['body']).map(str)
-    # dfTickets = dfTickets.drop(['title'], axis=1)
+    print("Shape after removed duplicates:",dfTickets.shape)
 
     # Select columns for cleaning
-    columnsToClean = ['body', 'title']
+    columnsToClean = ['body']
 
     # Create list of regex to remove sensitive data
     # Clean dataset and remove sensitive data
@@ -148,45 +163,45 @@ if __name__ == '__main__':
     # dfWordsEn = package.run('EnglishWords.dprep', dataflow_idx=0)
     # dfWordsEn = package.run('EnglishWordsAlpha.dprep', dataflow_idx=0)
     # dfWordsEn = package.run('EnglishWordsMerged.dprep', dataflow_idx=0)
-    dfWordsEn = package.run('WordsEn.dprep', dataflow_idx=0)
-    dfFirstNames = package.run('FirstNames.dprep', dataflow_idx=0)
-    dfBlackListWords = package.run('WordsBlacklist.dprep', dataflow_idx=0)
+    dfWordsEn = pd.read_csv('./datasets/WordsEn.txt',dtype=str, low_memory=False)
+    dfFirstNames = pd.read_csv('./datasets/CSV_Database_of_First_Names.csv',dtype=str, low_memory=False)
+    #dfBlackListWords = pd.DataFrame()
+
 
     # Transform all words to lower case
-    dfWordsEn['Line'] = dfWordsEn['Line'].str.lower()
-    dfFirstNames['Line'] = dfFirstNames['Line'].str.lower()
-    dfBlackListWords['Line'] = dfBlackListWords['Line'].str.lower()
+    dfWordsEn['Word'] = dfWordsEn['Word'].str.lower()
+    dfFirstNames['Word'] = dfFirstNames['Word'].str.lower()
+    #dfBlackListWords['Line'] = dfBlackListWords['Line'].str.lower()
 
     # Merge datasets removing names from English words dataset
     print("Shape before removing first names from\
         english words dataset: "+str(dfWordsEn.shape))
     dfWords = dfWordsEn.merge(
         dfFirstNames.drop_duplicates(),
-        on=['Line'], how='left', indicator=True)
+        on=['Word'], how='left', indicator=True)
     # Select words without names only
     dfWords = dfWords.loc[dfWords['_merge'] == 'left_only']
-    print("Shape after removing first names from\
+    print("Shape dfWords after removing first names from\
         english words dataset: "+str(dfWords.shape))
     dfWords = dfWords.drop("_merge", axis=1)  # Drop merge indicator column
-
-    # Merge datasets removing blacklisted words
-    print("Shape before removing blacklisted\
-        words from english ords dataset: "+str(dfWords.shape))
-    dfWords = dfWords.merge(
-        dfBlackListWords.drop_duplicates(),
-        on=['Line'], how='left', indicator=True
-    )
-    # Select words
-    dfWords = dfWords.loc[dfWords['_merge'] == 'left_only']
-    print("Shape after removing blacklisted\
-        words from english words dataset: "+str(dfWords.shape))
+    
 
     # Remove non english words and names
-    dfTickets['body'] = dfTickets['body'].apply(
-        lambda emailBody: removeNonEnglish(emailBody, dfWords['Line']))
-    dfTickets['title'] = dfTickets['title'].apply(
-        lambda emailBody: removeNonEnglish(emailBody, dfWords['Line']))
 
+    start_time = time.time()
+    dfTickets['body'] = dfTickets['body'].astype(str).apply(
+        lambda emailBody: removeNonEnglish(emailBody, dfWords['Word'].astype(str)))
+    #dfTickets['title'] = dfTickets['title'].astype(str).apply(
+    #    lambda emailBody: removeNonEnglish(emailBody, dfWords['Word'].astype(str)))
+    end_time = time.time()
+    print("Remove NonEnglish in {:.2f} sec.".format(end_time - start_time))
+
+
+    #dfTickets['body'] = dfTickets['body'].apply(
+    #    lambda emailBody: removeNonEnglish(emailBody, dfWords['Word']))
+    #dfTickets['title'] = dfTickets['title'].apply(
+    #    lambda emailBody: removeNonEnglish(emailBody, dfWords['Word']))
+    
     # Remove empty strings and null rows after removing non english words
     print("Before removing empty: " + str(dfTickets.shape))
     dfTickets = dfTickets[dfTickets.body != " "]
@@ -199,9 +214,8 @@ if __name__ == '__main__':
     ########################################################
     # Select columns for encryption
     columnsToEncrypt = [
-        'category', 'sub_category1', 'sub_category2',
-        'business_service', 'urgency',
-        'impact', 'ticket_type'
+        'business_service', 'ticket_type','category',
+        'sub_category1', 'sub_category2'
     ]
 
     # Encrypt data for each of selected columns
