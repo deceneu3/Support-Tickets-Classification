@@ -1,0 +1,68 @@
+<!--The content below is only a placeholder and can be replaced.-->
+<div class="b">
+  <div style="width: 50%; height: 100%;min-height: 99vh; margin: 0 auto ;background: white; padding-left: 2px; padding-right: 2px;padding-bottom: 1vh;">
+    <header>
+      <img src="assets/endavalogo.PNG" style="height:50px; padding: 10px;">
+      <img src="assets/its.PNG" style="height: 50px;right: 25%;position: absolute">
+    </header>
+
+    <form class="example-form" [formGroup]="myForm">
+      <mat-form-field class="example-full-width">
+        <textarea matInput placeholder="Ticket Text" name="text"
+                  formControlName="text"></textarea>
+      </mat-form-field>
+
+
+    </form>
+    <mat-form-field style="margin-left: 10%">
+      <mat-select placeholder="Predictions" [(value)]="selectedValue">
+        <mat-option *ngFor="let pred of predictions" [value]="pred">
+          {{pred.label}}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+    <button mat-button color="warn" [disabled]="myForm.invalid || (this.selectedValue == null || this.selectedValue.value == null) " (click)="predict()">Evaluate</button>
+
+
+    <mat-card *ngIf="result!=null" class="example-card" style="padding: 3%; margin-left: 10%;">
+      <mat-card-header style="padding-bottom: 1rem">
+        <div mat-card-avatar class="example-header-image"></div>
+        <mat-card-title>Prediction</mat-card-title>
+        <mat-card-subtitle 
+		matTooltip="{{result.description}}"
+                   matTooltipClass="tooltip-styled" 
+		*ngIf="result.description!=null" style="overflow-x: hidden; max-width: 300px;min-width: 300px;width: 300px  ;text-overflow: ellipsis;white-space: nowrap;">{{result.description}}
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content *ngIf="result.category != null"> 
+        <p>
+         <span style="color: orangered"> Category:  </span>{{result.category}}
+        </p>
+      </mat-card-content>
+
+      <mat-card-content *ngIf="result.ticket_type != null">
+        <p>
+         <span style=" ;color: orangered"> Ticket type:  </span>{{result.ticket_type}}
+        </p>
+      </mat-card-content>
+	  <mat-card-content *ngIf="result.business_service != null">
+	  <p>
+	   <span style=" ;color: orangered"> Business service:  </span>{{result.business_service}}
+	  </p>
+	  </mat-card-content>
+
+
+      <mat-card-content *ngIf="result.impact != null">
+        <p>
+          <span style=" color: orangered">Impact: </span> {{result.impact }}
+        </p>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-button (click)="clearP()">CLEAR</button>
+      </mat-card-actions>
+    </mat-card>
+
+
+  </div>
+</div>
+
