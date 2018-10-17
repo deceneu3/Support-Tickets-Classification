@@ -6,7 +6,7 @@ import logging
 import pickle
 import re
 
-IS_LOCAL = False
+IS_LOCAL = True
 IS_DEBUG = False
 
 # Use with Azure Web Apps
@@ -31,11 +31,11 @@ else:
     download_models()
 
 # Loading models
-model_impact = pickle.load(
-    open(
-        os.path.join(__location__, "impact.model"), "rb"
-    )
-)
+#model_impact = pickle.load(
+#    open(
+#        os.path.join(__location__, "impact.model"), "rb"
+#    )
+#)
 model_ticket_type = pickle.load(
     open(
         os.path.join(__location__, "ticket_type.model"), "rb"
@@ -54,12 +54,34 @@ model_business_service = pickle.load(
     )
 )
     
-model_urgency = pickle.load(
-    open(
-        os.path.join(__location__, "urgency.model"), "rb"
-    )
-)
+#model_urgency = pickle.load(
+#    open(
+#        os.path.join(__location__, "urgency.model"), "rb"
+#    )
+#)
     
+#Loading dictionaries
+feature_ticket_type  = pickle.load(
+    open(
+        os.path.join(__location__, "ticket_type.feature"), "rb"
+    )
+)  
+   
+
+feature_business_service  = pickle.load(
+    open(
+        os.path.join(__location__, "business_service.feature"), "rb"
+    )
+) 
+    
+feature_category  = pickle.load(
+    open(
+        os.path.join(__location__, "category.feature"), "rb"
+    )
+) 
+ 
+
+
 
 @app.errorhandler(404)
 def not_found(error):
@@ -93,19 +115,17 @@ def predictall():
     description = preprocess_data(description)
 
     predicted_ticket_type = model_ticket_type.predict([description])[0]
-    print("predicted ticket_type: "+str(predicted_ticket_type))
+    predicted_ticket_type_name = feature_ticket_type.get(int(predicted_ticket_type))
+    print("predicted ticket_type: {} {}".format(predicted_ticket_type,predicted_ticket_type_name))
 
     predicted_category = model_category.predict([description])[0]
-    print("predicted category: "+str(predicted_category))
-
-    predicted_impact = model_impact.predict([description])[0]
-    print("predicted impact: "+str(predicted_impact))
+    predicted_category_name = feature_category.get(int(predicted_category))
+    print("predicted category: {} {}".format(predicted_category,predicted_category_name))
 
     predicted_business_service = model_business_service.predict([description])[0]
-    print("predicted business_service: "+str(predicted_business_service))
+    predicted_business_service_name = feature_business_service.get(int(predicted_business_service))
+    print("predicted business service: {} {}".format(predicted_business_service,predicted_business_service_name))
 
-    predicted_urgency = model_urgency.predict([description])[0]
-    print("predicted urgency: "+str(predicted_urgency))
 
     ts = time.gmtime()
     logging.info(
@@ -114,11 +134,9 @@ def predictall():
     )
     return jsonify({
         "description": description,
-        "ticket_type": predicted_ticket_type,
-        "business_service": predicted_business_service,
-        "category": predicted_category,
-        "impact": predicted_impact,
-        "urgency": predicted_urgency
+        "ticket_type": predicted_ticket_type_name,
+        "business_service": predicted_business_service_name,
+        "category": predicted_category_name
     })
 
 
@@ -131,14 +149,17 @@ def category1():
     if not request.json or 'description' not in request.json:
         abort(400)
     description = request.json['description']
-    print(description)
+    description = preprocess_data(description)
 
-    predicted = model_category.predict([description])
-    print("Predicted: "+str(predicted))
+    predicted_category = model_category.predict([description])[0]
+    predicted_category_name = feature_category.get(int(predicted_category))
+    print("predicted category: {} {}".format(predicted_category,predicted_category_name))
 
     ts = time.gmtime()
     logging.info("Request sent to evaluation - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
-    return jsonify({"category": predicted[0]})
+    return jsonify({
+            "description": description,
+            "category": predicted_category_name})
 
 
 @app.route('/endava/api/v1.0/tickettype', methods=['POST'])
@@ -150,51 +171,18 @@ def tickettype():
     if not request.json or 'description' not in request.json:
         abort(400)
     description = request.json['description']
-    print(description)
+    description = preprocess_data(description)
 
-    predicted = model_ticket_type.predict([description])
-    print("Predicted: " + str(predicted))
+    predicted_ticket_type = model_ticket_type.predict([description])[0]
+    predicted_ticket_type_name = feature_ticket_type.get(int(predicted_ticket_type))
+    print("predicted ticket_type: {} {}".format(predicted_ticket_type,predicted_ticket_type_name))
+
 
     ts = time.gmtime()
     logging.info("Request sent to evaluation - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
-    return jsonify({"ticket_type": predicted[0]})
-
-@app.route('/endava/api/v1.0/impact', methods=['POST'])
-def impact():
-    ts = time.gmtime()
-    logging.info("Request received - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
-    print(request)
-    print(request.json)
-    if not request.json or 'description' not in request.json:
-        abort(400)
-    description = request.json['description']
-    print(description)
-
-    predicted = model_impact.predict([description])
-    print("Predicted: " + str(predicted))
-
-    ts = time.gmtime()
-    logging.info("Request sent to evaluation - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
-    return jsonify({"impact": predicted[0]})
-
-
-@app.route('/endava/api/v1.0/urgency', methods=['POST'])
-def urgency():
-    ts = time.gmtime()
-    logging.info("Request received - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
-    print(request)
-    print(request.json)
-    if not request.json or 'description' not in request.json:
-        abort(400)
-    description = request.json['description']
-    print(description)
-
-    predicted = model_urgency.predict([description])
-    print("Predicted: " + str(predicted))
-
-    ts = time.gmtime()
-    logging.info("Request sent to evaluation - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
-    return jsonify({"urgency": predicted[0]})
+    return jsonify({
+            "description": description,
+            "ticket_type": predicted_ticket_type_name})
 
 @app.route('/endava/api/v1.0/business_service', methods=['POST'])
 def business_service():
@@ -205,14 +193,56 @@ def business_service():
     if not request.json or 'description' not in request.json:
         abort(400)
     description = request.json['description']
-    print(description)
+    description = preprocess_data(description)
 
-    predicted = model_business_service.predict([description])
-    print("Predicted: " + str(predicted))
+    predicted_business_service = model_business_service.predict([description])[0]
+    predicted_business_service_name = feature_business_service.get(int(predicted_business_service))
+    print("predicted business service: {} {}".format(predicted_business_service,predicted_business_service_name))
+
 
     ts = time.gmtime()
     logging.info("Request sent to evaluation - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
-    return jsonify({"business service": predicted[0]})
+    return jsonify({
+            "description": description,
+            "business_service": predicted_business_service_name})
+
+#@app.route('/endava/api/v1.0/impact', methods=['POST'])
+#def impact():
+#    ts = time.gmtime()
+#    logging.info("Request received - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
+#    print(request)
+#    print(request.json)
+#    if not request.json or 'description' not in request.json:
+#        abort(400)
+#    description = request.json['description']
+#    print(description)
+#
+#    predicted = model_impact.predict([description])
+#    print("Predicted: " + str(predicted))
+#
+#    ts = time.gmtime()
+#    logging.info("Request sent to evaluation - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
+#    return jsonify({"impact": predicted[0]})
+#
+#
+#@app.route('/endava/api/v1.0/urgency', methods=['POST'])
+#def urgency():
+#    ts = time.gmtime()
+#    logging.info("Request received - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
+#    print(request)
+#    print(request.json)
+#    if not request.json or 'description' not in request.json:
+#        abort(400)
+#    description = request.json['description']
+#    print(description)
+#
+#    predicted = model_urgency.predict([description])
+#    print("Predicted: " + str(predicted))
+#
+#    ts = time.gmtime()
+#    logging.info("Request sent to evaluation - %s" % time.strftime("%Y-%m-%d %H:%M:%S", ts))
+#    return jsonify({"urgency": predicted[0]})
+
 
 
 # Data prep - much to improve :)
